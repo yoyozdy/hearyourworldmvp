@@ -47,7 +47,7 @@
     let globalPlayer = new Audio();
     globalPlayer.setAttribute('playsinline', 'true');
 
-    mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
+    mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9yYWhyaDEyMGRuMnBzMWhqd2ExNzQ5In0.OOYCgsK0LHMDrTpVaeAEaQ';
     const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/light-v11', center: [121.47, 31.23], zoom: 13 });
 
     window.onload = () => { if(sessionStorage.getItem('hyw_name')) { hideAuth(); loadStamps(); } };
