@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Hear Your World - MVP v2</title>
+    <title>Hear Your World - Final MVP</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
@@ -11,20 +11,17 @@
         body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background: #fff; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         
-        /* 登录卡片样式优化 */
         #auth-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.9); z-index: 1000; display: flex; align-items: center; justify-content: center;
         }
         .auth-card {
             background: #fff; padding: 35px 25px; border-radius: 32px; text-align: center; width: 85%; max-width: 320px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
         }
         .avatar-box { display: flex; justify-content: center; gap: 30px; margin: 25px 0; }
         .av-opt { font-size: 55px; cursor: pointer; opacity: 0.2; transition: 0.3s; }
         .av-opt.selected { opacity: 1; transform: scale(1.15); }
 
-        /* 极简按钮：强制单行 */
         .pin-btn { 
             position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
             background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
@@ -35,7 +32,6 @@
         }
         .pin-btn.recording { background: rgba(255, 59, 48, 0.95); color: #fff; border: none; }
 
-        /* 地图 Stamp 样式 */
         .custom-marker { text-align: center; cursor: pointer; }
         .marker-body { 
             width: 50px; height: 50px; background: white; border-radius: 50%; 
@@ -53,14 +49,14 @@
 
 <div id="auth-overlay">
     <div class="auth-card">
-        <h2 style="margin:0; font-size:24px; color:#000;">Hear Your World</h2>
+        <h2 style="margin:0;">Hear Your World</h2>
         <p style="color:#8e8e93; font-size:14px; margin: 10px 0 20px;">Fusing Sound & Presence</p>
         <input id="user-name" type="text" placeholder="Your Name" style="width:100%; padding:15px; border-radius:16px; border:1px solid #efeff4; background:#f9f9fb; font-size:16px; box-sizing:border-box;">
         <div class="avatar-box">
             <span id="av-m" class="av-opt" onclick="setAv('male')">👨</span>
             <span id="av-f" class="av-opt" onclick="setAv('female')">👩</span>
         </div>
-        <button onclick="enterWorld()" style="width:100%; padding:16px; background:#007AFF; color:white; border:none; border-radius:18px; font-weight:700; font-size:16px;">ENTER WORLD</button>
+        <button onclick="enterWorld()" style="width:100%; padding:16px; background:#007AFF; color:white; border:none; border-radius:18px; font-weight:700;">ENTER WORLD</button>
     </div>
 </div>
 
@@ -68,18 +64,14 @@
 <div id="drop-button" class="pin-btn" style="display:none;">📍 DROP A SOUND</div>
 
 <script>
-    // --- 配置区 ---
+    // --- 填入通行证 ---
     const DB_URL = 'https://cpayvfeaelxsdimbfqkk.supabase.co'; 
-    const DB_KEY = '在此填入你那串 sb_publishable 开头的 Key'; 
+    const DB_KEY = 'sb_publishable_ktemn0nndd99JZoeO6tV9g_ShZoBn8S'; 
     const _db = supabase.createClient(DB_URL, DB_KEY);
 
     const ADMINS = ['Dayou', 'Rainie', 'admin3', 'admin4', 'admin5'];
-    let me = { name: '', avatar: '' };
-    let recorder;
-    let chunks = [];
-    let isRec = false;
+    let recorder, chunks = [], isRec = false;
 
-    // 地图设置：彩色模式 streets-v12
     mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
     const map = new mapboxgl.Map({
         container: 'map',
@@ -89,18 +81,17 @@
     });
 
     function setAv(t) {
-        me.avatar = t;
+        localStorage.setItem('hyw_av', t); // 持久化
         document.getElementById('av-m').className = 'av-opt' + (t==='male'?' selected':'');
         document.getElementById('av-f').className = 'av-opt' + (t==='female'?' selected':'');
     }
 
-    // 唤醒音频引擎并进入
     function enterWorld() {
         const n = document.getElementById('user-name').value.trim();
-        if(!n || !me.avatar) return alert("Name & Avatar needed!");
-        me.name = n;
+        const av = localStorage.getItem('hyw_av');
+        if(!n || !av) return alert("Name & Avatar needed!");
+        localStorage.setItem('hyw_name', n); // 持久化
         
-        // 关键：在用户点击进入时静默播放一段空白音，唤醒 iOS/Android 音频权限
         const dummy = new Audio();
         dummy.play().catch(() => {}); 
 
@@ -140,24 +131,23 @@
     }
 
     async function saveStamp() {
-        // 优化：录音完直接弹 Emoji 询问，不再询问名字/性别
         const mood = prompt("What's your mood emoji right now?", "✨");
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const fName = `audio_${Date.now()}.webm`;
+        
+        // 从缓存拿数据，防止变量丢失导致的 TypeError 
+        const savedName = localStorage.getItem('hyw_name');
+        const savedAv = localStorage.getItem('hyw_av');
 
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const { latitude, longitude } = pos.coords;
-            
-            // 上传音频
             const { error: upErr } = await _db.storage.from('audio-files').upload(fName, blob);
             if(upErr) return alert("Upload failed: " + upErr.message);
 
             const { data } = _db.storage.from('audio-files').getPublicUrl(fName);
-            
-            // 存入数据库：直接调用 me.name 和 me.avatar
             const { error: dbErr } = await _db.from('sound_stamps').insert([{
-                username: me.name,
-                avatar_type: me.avatar,
+                username: savedName,
+                avatar_type: savedAv,
                 emoji: mood || '📍',
                 audio_url: data.publicUrl,
                 latitude, longitude
@@ -165,34 +155,31 @@
             
             if(dbErr) alert("Database error: " + dbErr.message);
             else location.reload();
-        }, (err) => alert("GPS/Location needed to drop stamp."));
+        }, (err) => alert("GPS needed to drop stamp."));
     }
 
     async function loadStamps() {
         const { data } = await _db.from('sound_stamps').select('*');
         if(!data) return;
         
+        const currentUserName = localStorage.getItem('hyw_name');
+
         data.forEach(s => {
             const el = document.createElement('div');
             el.className = 'custom-marker';
-            el.innerHTML = `
-                <div class="marker-body">${s.avatar_type==='male'?'👨':'👩'}</div>
-                <div class="marker-name">${s.username}</div>
-                <div class="marker-emoji">${s.emoji}</div>
-            `;
+            el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨':'👩'}</div>
+                            <div class="marker-name">${s.username}</div>
+                            <div class="marker-emoji">${s.emoji}</div>`;
             
-            // 点击交互优化
             el.onclick = (e) => {
                 e.stopPropagation();
-                // 1. 播放录音
                 const audio = new Audio(s.audio_url);
-                audio.play().catch(err => console.log("Audio play blocked", err));
+                audio.play().catch(err => console.log("Blocked", err));
                 
-                // 2. 如果是 Admin，在播放的同时询问是否删除
-                if(ADMINS.includes(me.name)) {
-                    // 稍微延迟 0.5s 弹出，以免打断播放体验
+                // 管理员特权逻辑 [cite: 14]
+                if(ADMINS.includes(currentUserName)) {
                     setTimeout(() => {
-                        if(confirm(`Admin [${me.name}]: Do you want to delete this stamp by ${s.username}?`)) {
+                        if(confirm(`Admin [${currentUserName}]: Delete stamp by ${s.username}?`)) {
                             _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
                         }
                     }, 500);
