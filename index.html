@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Hear Your World - MVP</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+     /* 替换掉原来的 .pin-btn */
+.pin-btn { 
+    position: fixed; 
+    bottom: 35px;           /* 距离底部稍微近一点 */
+    left: 50%; 
+    transform: translateX(-50%);
+    
+    /* 1. 极致半透明感 */
+    background: rgba(255, 255, 255, 0.3); 
+    backdrop-filter: blur(10px);          
+    -webkit-backdrop-filter: blur(10px);  
+    
+    /* 2. 尺寸瘦身 */
+    padding: 10px 24px;      /* 减小了内边距，让它更细长 */
+    min-width: 120px;       /* 设置最小宽度，保证平衡感 */
+    text-align: center;
+    white-space: nowrap;
+    
+    /* 3. 边框与文字 */
+    color: #1A1A1A; 
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 100px;    /* 完美的圆角胶囊状 */
+    
+    /* 4. 字体微调 */
+    font-weight: 500; 
+    font-size: 13px;         /* 稍微缩小字号 */
+    letter-spacing: 1.5px;   /* 保持高级的间距感 */
+    text-transform: uppercase;
+    
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05); /* 更轻的阴影 */
+    z-index: 10;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* 交互反馈 */
+.pin-btn:active {
+    transform: translateX(-50%) scale(0.95);
+    background: rgba(255, 255, 255, 0.6);
+}
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="pin-btn" onclick="getLocation()">📍Drop a Sound</div>
+
+    <script>
+        // 【关键】在这里填入你刚刚申请到的 Token
+        mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
+
+        // 初始化地图
+        const map = new mapboxgl.Map({
+            container: 'map', // 地图容器 ID
+            style: 'mapbox://styles/mapbox/streets-v12', // 街道风格，你也可以换成 'mapbox://styles/mapbox/dark-v11'
+            center: [121.47, 31.23], // 初始坐标 (上海)
+            zoom: 12 // 初始缩放级别
+        });
+
+        // 手机定位功能
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const { longitude, latitude } = position.coords;
+                    // 把地图中心对准你
+                    map.flyTo({ center: [longitude, latitude], zoom: 15 });
+                    // 在你所在的地方放一个蓝色标记
+                    new mapboxgl.Marker().setLngLat([longitude, latitude]).addTo(map);
+                    alert("定位成功！准备开始录音了吗？");
+                });
+            } else {
+                alert("你的浏览器不支持定位。");
+            }
+        }
+    </script>
+</body>
+</html>
