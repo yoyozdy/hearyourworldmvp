@@ -99,55 +99,70 @@
     }
 
     async function loadStamps() {
-        const { data } = await _db.from('sound_stamps').select('*');
-        const myName = sessionStorage.getItem('hyw_name');
-        if(!data) return;
+    const { data } = await _db.from('sound_stamps').select('*');
+    const myName = sessionStorage.getItem('hyw_name');
+    if(!data) return;
 
-        data.forEach(s => {
-            const el = document.createElement('div');
-            el.className = 'custom-marker';
-            el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨🏻‍💻':'👩🏻‍🎨'}</div>
-                            <div class="marker-name">${s.username} ${s.emoji}</div>`;
+    data.forEach(s => {
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨🏻‍💻':'👩🏻‍🎨'}</div>
+                        <div class="marker-name">${s.username} ${s.emoji}</div>`;
+        
+        let startPressTime;
+        let isLongPress = false;
+
+        // 【移动端核心修复】使用 touchstart 记录起始时间
+        el.addEventListener('touchstart', (e) => {
+            startPressTime = Date.now();
+            isLongPress = false;
             
-            let pressTimer;
-            
-            // 手机端专用的短按播放逻辑
-            el.addEventListener('touchstart', (e) => {
-                // 设置长按定时器（管理员功能）
-                pressTimer = window.setTimeout(() => {
-                    if(ADMINS.includes(myName)) {
-                        if(confirm(`Admin: Delete ${s.username}'s sound?`)) {
-                            _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
-                        }
+            // 预设长按计时器（管理员删除）
+            window.pressTimer = setTimeout(() => {
+                if (ADMINS.includes(myName)) {
+                    isLongPress = true;
+                    if (confirm(`Admin: Delete ${s.username}'s sound?`)) {
+                        _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
                     }
-                }, 800);
-            });
-
-            el.addEventListener('touchend', (e) => {
-                clearTimeout(pressTimer);
-                // 【修复核心】如果按下的时间很短（非长按），则立即播放声音
-                // 使用这种方式可以确保在 touchend 瞬间触发播放，符合移动端安全策略
-                if (e.cancelable) e.preventDefault(); 
-                
-                player.src = s.audio_url;
-                player.load();
-                const playPromise = player.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => console.log("Play failed", error));
                 }
-            });
+            }, 800); 
+        }, { passive: true });
 
-            // 兼容电脑端点击
-            el.onclick = (e) => {
-                if (!window.ontouchstart) {
-                    player.src = s.audio_url;
-                    player.play();
+        // 【移动端核心修复】使用 touchend 触发播放
+        el.addEventListener('touchend', (e) => {
+            clearTimeout(window.pressTimer); // 手指抬起，取消长按计时
+            
+            const pressDuration = Date.now() - startPressTime;
+
+            // 如果按下时间短于 800ms 且不是长按操作，则立即执行同步播放
+            if (pressDuration < 800 && !isLongPress) {
+                // 必须在 touchend 的回调函数内同步执行，手机浏览器才允许播放
+                // 如果你使用的是 globalAudio，请确保它在最上方已定义
+                if (typeof globalAudio !== 'undefined') {
+                    globalAudio.src = s.audio_url;
+                    globalAudio.play().catch(err => console.log("Play failed", err));
+                } else {
+                    // 如果你使用的是 v8/v9 的 playSound 函数
+                    playSound(s.audio_url);
                 }
-            };
-
-            new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
+            }
         });
-    }
+
+        // 兼容电脑端鼠标点击
+        el.onclick = (e) => {
+            if (!('ontouchstart' in window)) {
+                if (typeof globalAudio !== 'undefined') {
+                    globalAudio.src = s.audio_url;
+                    globalAudio.play();
+                } else {
+                    playSound(s.audio_url);
+                }
+            }
+        };
+
+        new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
+    });
+}
 
     // 录音逻辑
     const btn = document.getElementById('drop-button');
