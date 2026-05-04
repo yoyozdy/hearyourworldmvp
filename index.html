@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Hear Your World - v13 MP3</title>
+    <title>Hear Your World - v14</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
@@ -12,8 +12,8 @@
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 4000; display: flex; align-items: center; justify-content: center; }
         .auth-card { text-align: center; width: 85%; max-width: 320px; }
-        .av-opt { font-size: 50px; cursor: pointer; opacity: 0.2; margin: 10px; display: inline-block; transition: 0.3s; }
-        .av-opt.selected { opacity: 1; transform: scale(1.2); }
+        .av-opt { font-size: 50px; cursor: pointer; opacity: 0.2; margin: 10px; display: inline-block; transition: 0.3s; filter: grayscale(1); }
+        .av-opt.selected { opacity: 1; transform: scale(1.2); filter: grayscale(0); }
         .pin-btn { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #000; padding: 20px 35px; border-radius: 100px; color: #fff; font-weight: 800; z-index: 2000; border: none; display: none; }
         .custom-marker { text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .marker-body { width: 55px; height: 55px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid #fff; }
@@ -31,7 +31,7 @@
             <span id="av-m" class="av-opt" onclick="setAv('male')">👨🏻‍💻</span>
             <span id="av-f" class="av-opt" onclick="setAv('female')">👩🏻‍🎨</span>
         </div>
-        <button onclick="enterWorld()" style="width:100%; padding:20px; background:#007AFF; color:white; border:none; border-radius:25px; font-weight:bold; font-size:18px;">START EXPLORING</button>
+        <button onclick="enterWorld()" style="width:100%; padding:20px; background:#007AFF; color:white; border:none; border-radius:25px; font-weight:bold; font-size:18px; cursor:pointer;">START EXPLORING</button>
     </div>
 </div>
 
@@ -51,31 +51,39 @@
     mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
     const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/light-v11', center: [121.47, 31.23], zoom: 13 });
 
+    // 检查 Session
     window.onload = () => {
-        if(sessionStorage.getItem('hyw_name')) {
-            document.getElementById('auth-overlay').style.display = 'none';
-            document.getElementById('drop-button').style.display = 'block';
+        const savedName = sessionStorage.getItem('hyw_name');
+        if(savedName) {
+            hideAuth();
             loadStamps();
         }
     };
 
     function setAv(t) {
         sessionStorage.setItem('hyw_av', t);
-        document.getElementById('av-m').style.opacity = (t==='male'?'1':'0.2');
-        document.getElementById('av-f').style.opacity = (t==='female'?'1':'0.2');
+        document.getElementById('av-m').className = 'av-opt' + (t==='male' ? ' selected' : '');
+        document.getElementById('av-f').className = 'av-opt' + (t==='female' ? ' selected' : '');
+    }
+
+    function hideAuth() {
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('drop-button').style.display = 'block';
     }
 
     async function enterWorld() {
         const n = document.getElementById('user-name').value.trim();
         const av = sessionStorage.getItem('hyw_av');
-        if(!n || !av) return alert("Pick name & avatar!");
         
+        if(!n) return alert("Please enter your name!");
+        if(!av) return alert("Please select an avatar!");
+        
+        // 尝试解锁音频，但不阻塞进入流程
         globalPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==";
-        await globalPlayer.play();
+        globalPlayer.play().catch(() => console.log("Audio waiting for first interaction"));
         
         sessionStorage.setItem('hyw_name', n);
-        document.getElementById('auth-overlay').style.display = 'none';
-        document.getElementById('drop-button').style.display = 'block';
+        hideAuth();
         loadStamps();
     }
 
@@ -104,35 +112,32 @@
 
             el.addEventListener('touchend', (e) => {
                 clearTimeout(pressTimer);
+                // 同步切换源并播放
                 globalPlayer.src = s.audio_url;
                 globalPlayer.load();
-                globalPlayer.play().catch(err => console.error(err));
+                globalPlayer.play().catch(err => alert("Tap again to play!"));
             });
 
             new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
         });
     }
 
+    // 录制部分
     const btn = document.getElementById('drop-button');
     let recorder, chunks = [];
     btn.onclick = async () => {
         if(!recorder || recorder.state === "inactive") {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            // 尝试设置录制格式为 audio/mpeg (mp3)，如果不支持则回退
-            const options = { mimeType: 'audio/mpeg' };
             try {
-                recorder = new MediaRecorder(stream, options);
-            } catch (e) {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const options = { mimeType: 'audio/webm;codecs=opus' }; // 现代手机更通用的webm封装
                 recorder = new MediaRecorder(stream);
-            }
-            
-            chunks = [];
-            recorder.ondataavailable = e => chunks.push(e.data);
-            recorder.onstop = saveStamp;
-            recorder.start();
-            btn.innerText = "⏹ STOP";
-            btn.style.background = "red";
+                chunks = [];
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = saveStamp;
+                recorder.start();
+                btn.innerText = "⏹ STOP";
+                btn.style.background = "red";
+            } catch(e) { alert("Please enable Microphone access!"); }
         } else {
             recorder.stop();
             btn.innerText = "📍 DROP A SOUND";
@@ -142,9 +147,8 @@
 
     async function saveStamp() {
         const mood = prompt("Emoji tag?", "✨");
-        // 修改 Blob 类型为 audio/mp3
+        // 既然你是 iPhone 测试，我们依然保存为 .mp3 后缀名来提高系统的识别度
         const blob = new Blob(chunks, { type: 'audio/mp3' });
-        // 修改保存的文件后缀名为 .mp3
         const fName = `audio_${Date.now()}.mp3`;
         
         navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -157,7 +161,7 @@
                 latitude: pos.coords.latitude, longitude: pos.coords.longitude
             }]);
             location.reload();
-        });
+        }, () => alert("GPS needed!"));
     }
 </script>
 </body>
