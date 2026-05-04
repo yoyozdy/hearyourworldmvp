@@ -2,19 +2,18 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Hear Your World - Admin Restored</title>
+    <title>Hear Your World - Final UX Fix</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; background: #000; overflow: hidden; }
+        body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background: #000; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         
         #auth-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #fff; z-index: 3000; display: flex; 
-            align-items: center; justify-content: center;
+            background: #fff; z-index: 3000; display: flex; align-items: center; justify-content: center;
         }
         .auth-card { text-align: center; width: 80%; max-width: 300px; }
         .av-opt { font-size: 50px; cursor: pointer; opacity: 0.2; margin: 10px; display: inline-block; transition: 0.3s; }
@@ -27,7 +26,7 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: none; display: none;
         }
 
-        .custom-marker { text-align: center; cursor: pointer; }
+        .custom-marker { text-align: center; cursor: pointer; -webkit-user-select: none; user-select: none; }
         .marker-body { width: 50px; height: 50px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid #fff; }
         .marker-name { color: #333; font-size: 10px; font-weight: 700; margin-top: 5px; background: rgba(255,255,255,0.9); padding: 2px 8px; border-radius: 10px; }
     </style>
@@ -43,7 +42,6 @@
             <span id="av-f" class="av-opt" onclick="setAv('female')">👩🏻‍🎨</span>
         </div>
         <button onclick="enterWorld()" style="width:100%; padding:18px; background:#007AFF; color:white; border:none; border-radius:18px; font-weight:bold; font-size:16px;">TAP TO START</button>
-        <p style="font-size:10px; color:#999; margin-top:15px;">*Tapping initializes audio on mobile</p>
     </div>
 </div>
 
@@ -55,7 +53,7 @@
     const DB_KEY = 'sb_publishable_ktemn0nndd99JZoeO6tV9g_ShZoBn8S'; 
     const _db = supabase.createClient(DB_URL, DB_KEY);
 
-    const ADMINS = ['Dayou', 'Rainie']; // 管理员名单
+    const ADMINS = ['Dayou', 'Rainie'];
     let recorder, chunks = [], isRec = false;
     let audioCtx;
 
@@ -85,10 +83,7 @@
         const n = document.getElementById('user-name').value.trim();
         const av = sessionStorage.getItem('hyw_av');
         if(!n || !av) return alert("Pick a name and avatar!");
-
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
-        
         sessionStorage.setItem('hyw_name', n);
         document.getElementById('auth-overlay').style.display = 'none';
         document.getElementById('drop-button').style.display = 'block';
@@ -106,7 +101,6 @@
             source.connect(audioCtx.destination);
             source.start(0);
         } catch (e) {
-            console.error("Playback error", e);
             new Audio(url).play();
         }
     }
@@ -135,7 +129,6 @@
         const mood = prompt("Emoji?", "✨");
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const fName = `audio_${Date.now()}.webm`;
-        
         navigator.geolocation.getCurrentPosition(async (pos) => {
             await _db.storage.from('audio-files').upload(fName, blob);
             const { data } = _db.storage.from('audio-files').getPublicUrl(fName);
@@ -162,21 +155,30 @@
             el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨🏻‍💻':'👩🏻‍🎨'}</div>
                             <div class="marker-name">${s.username} ${s.emoji}</div>`;
             
-            el.onclick = () => {
-                playSound(s.audio_url);
-                
-                // 【核心修复】管理员删除逻辑恢复
-                if(ADMINS.includes(myName)) {
-                    setTimeout(() => {
+            // 【核心改进】单击只播放，长按删除
+            let pressTimer;
+
+            // 针对移动端的触摸逻辑
+            el.addEventListener('touchstart', () => {
+                pressTimer = window.setTimeout(() => {
+                    if(ADMINS.includes(myName)) {
                         if(confirm(`Admin: Delete ${s.username}'s sound?`)) {
-                            _db.from('sound_stamps').delete().eq('id', s.id).then(() => {
-                                alert("Deleted!");
-                                location.reload();
-                            });
+                            _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
                         }
-                    }, 500); // 播放后半秒弹出，避免遮挡听觉起始
-                }
+                    }
+                }, 1000); // 长按 1 秒触发删除
+            });
+
+            el.addEventListener('touchend', () => {
+                clearTimeout(pressTimer);
+            });
+
+            // 普通点击逻辑 (PC & 移动端)
+            el.onclick = (e) => {
+                e.stopPropagation();
+                playSound(s.audio_url);
             };
+
             new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
         });
     }
