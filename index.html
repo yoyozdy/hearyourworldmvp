@@ -1,124 +1,223 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <title>Hear Your World - MVP</title>
-    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>Hear Your World - Social MVP</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+    
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
-    <style>
-        body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-     /* 替换掉原来的 .pin-btn */
-.pin-btn { 
-    position: fixed; 
-    bottom: 35px;           /* 距离底部稍微近一点 */
-    left: 50%; 
-    transform: translateX(-50%);
-    
-    /* 1. 极致半透明感 */
-    background: rgba(255, 255, 255, 0.3); 
-    backdrop-filter: blur(10px);          
-    -webkit-backdrop-filter: blur(10px);  
-    
-    /* 2. 尺寸瘦身 */
-    padding: 10px 24px;      /* 减小了内边距，让它更细长 */
-    min-width: 120px;       /* 设置最小宽度，保证平衡感 */
-    text-align: center;
-    white-space: nowrap;
-    
-    /* 3. 边框与文字 */
-    color: #1A1A1A; 
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 100px;    /* 完美的圆角胶囊状 */
-    
-    /* 4. 字体微调 */
-    font-weight: 500; 
-    font-size: 13px;         /* 稍微缩小字号 */
-    letter-spacing: 1.5px;   /* 保持高级的间距感 */
-    text-transform: uppercase;
-    
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05); /* 更轻的阴影 */
-    z-index: 10;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-/* 交互反馈 */
-.pin-btn:active {
-    transform: translateX(-50%) scale(0.95);
-    background: rgba(255, 255, 255, 0.6);
-}
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+        /* 登录遮罩层 */
+        #auth-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.92); z-index: 1000; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        .auth-card {
+            background: #1c1c1e; padding: 40px 30px; border-radius: 35px; 
+            text-align: center; width: 85%; max-width: 340px; color: white;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        .avatar-box { display: flex; justify-content: center; gap: 25px; margin: 25px 0; }
+        .av-opt { font-size: 55px; cursor: pointer; opacity: 0.3; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .av-opt.selected { opacity: 1; transform: scale(1.2); filter: drop-shadow(0 0 10px rgba(255,255,255,0.3)); }
+
+        /* 输入框美化 */
+        input#user-name {
+            width: 100%; background: #2c2c2e; border: 1px solid #3a3a3c; color: white; 
+            padding: 15px; border-radius: 16px; margin-bottom: 10px; font-size: 16px; box-sizing: border-box;
+        }
+
+        /* 核心录音按钮 (毛玻璃) */
+        .pin-btn { 
+            position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            padding: 18px 36px; border-radius: 100px; border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff; font-weight: 700; font-size: 14px; letter-spacing: 2px;
+            z-index: 10; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4); text-transform: uppercase;
+        }
+        .pin-btn.recording { background: rgba(255, 69, 58, 0.6); border-color: rgba(255, 69, 58, 0.4); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* 地图标记 Stamp */
+        .custom-marker { text-align: center; position: relative; }
+        .marker-body { 
+            width: 52px; height: 52px; background: white; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 34px; box-shadow: 0 5px 15px rgba(0,0,0,0.4); border: 3px solid #fff;
+            transition: 0.2s;
+        }
+        .custom-marker:active .marker-body { transform: scale(0.9); }
+        .marker-name { 
+            color: white; font-size: 11px; font-weight: 700; margin-top: 6px;
+            background: rgba(0,0,0,0.7); padding: 3px 10px; border-radius: 20px; display: inline-block;
+        }
+        .marker-emoji { position: absolute; top: -8px; right: -8px; font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <!-- 这里的 id="drop-button" 是关键，脚本靠它来控制录音 -->
-    <div id="drop-button" class="pin-btn">📍Drop a Sound</div>
 
-    <script>
-        // 1. 初始化地图
-        mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
-        const map = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v12',
-            center: [121.47, 31.23],
-            zoom: 12
-        });
+<div id="auth-overlay">
+    <div class="auth-card">
+        <h1 style="margin:0 0 10px; font-size:24px; letter-spacing:1px;">Hear Your World</h1>
+        <p style="color:#8e8e93; font-size:13px; margin-bottom:25px;">Create your presence in the soundscape.</p>
+        <input id="user-name" type="text" placeholder="What's your name?" maxlength="12">
+        <div class="avatar-box">
+            <span id="av-m" class="av-opt" onclick="setAv('male')">👨</span>
+            <span id="av-f" class="av-opt" onclick="setAv('female')">👩</span>
+        </div>
+        <button onclick="enterWorld()" style="width:100%; padding:16px; background:#fff; color:#000; border:none; border-radius:18px; font-weight:800; font-size:16px; cursor:pointer; margin-top:10px;">START EXPLORING</button>
+    </div>
+</div>
 
-        // 2. 核心：集成录音与定位的一键触发功能
-        async function startSoundStamp() {
-            const btn = document.getElementById('drop-button');
-            
+<div id="map"></div>
+<div id="drop-button" class="pin-btn" style="display:none;">📍 DROP A SOUND</div>
+
+<script>
+    // --- 【必填项】填入你的 Supabase 通行证 ---
+    const SUPA_URL = 'https://cpayvfeaelxsdimbfqkk.supabase.co'; 
+    const SUPA_KEY = 'sb_publishable_ktemn0nndd99JZoeO6tV9g_ShZoBn8S'; 
+    const _db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+    // 管理员名单 (拥有删除权限)
+    const ADMINS = ['Dayou', 'Rainie', 'admin3', 'admin4', 'admin5'];
+
+    let me = { name: '', avatar: '' };
+    let recorder;
+    let chunks = [];
+    let isRec = false;
+
+    // 地图初始化 (Mapbox)
+    mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/dark-v11', // PDF 中体现的深色高级感风格
+        center: [121.47, 31.23],
+        zoom: 13,
+        pitch: 45 // 增加一点倾斜视角，更具沉浸感
+    });
+
+    function setAv(t) {
+        me.avatar = t;
+        document.getElementById('av-m').className = 'av-opt' + (t==='male'?' selected':'');
+        document.getElementById('av-f').className = 'av-opt' + (t==='female'?' selected':'');
+    }
+
+    async function enterWorld() {
+        const n = document.getElementById('user-name').value.trim();
+        if(!n || !me.avatar) return alert("Please set your name and avatar!");
+        me.name = n;
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('drop-button').style.display = 'block';
+        loadAllStamps();
+    }
+
+    // 录音触发逻辑
+    const btn = document.getElementById('drop-button');
+    btn.onclick = async () => {
+        if(!isRec) {
             try {
-                // 请求麦克风权限（手机端必须在 HTTPS 下触发）
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.start();
-
-                // 同时获取定位并打点
-                navigator.geolocation.getCurrentPosition((position) => {
-                    const { longitude, latitude } = position.coords;
-                    map.flyTo({ center: [longitude, latitude], zoom: 15 });
-                    // 在地图上放置一个标记
-                    new mapboxgl.Marker().setLngLat([longitude, latitude]).addTo(map);
-                }, (err) => {
-                    console.error("定位失败", err);
-                    alert("请开启手机 GPS 定位权限");
-                });
-
-                // 3. UI 倒计时反馈（15秒声音邮票）
-                let timeLeft = 15;
-                btn.innerText = `Recording... ${timeLeft}s 📍`;
-                btn.style.background = "rgba(255, 100, 100, 0.5)"; // 录音时呈现淡红色提醒
-
-                const timer = setInterval(() => {
-                    timeLeft--;
-                    if (timeLeft > 0) {
-                        btn.innerText = `Recording... ${timeLeft}s 📍`;
-                    } else {
-                        clearInterval(timer);
-                        btn.innerText = "Sound Dropped! 📍";
-                        btn.style.background = "rgba(255, 255, 255, 0.3)";
-                    }
+                recorder = new MediaRecorder(stream);
+                chunks = [];
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = processAndUpload;
+                
+                recorder.start();
+                isRec = true;
+                btn.classList.add('recording');
+                
+                let sec = 15;
+                btn.innerText = `⏹ STOP (${sec}s)`;
+                const cd = setInterval(() => {
+                    sec--;
+                    if(sec <= 0 || !isRec) { 
+                        clearInterval(cd); 
+                        if(isRec) finalizeRec(); 
+                    } else { btn.innerText = `⏹ STOP (${sec}s)`; }
                 }, 1000);
+            } catch (err) { alert("Please allow microphone access!"); }
+        } else { finalizeRec(); }
+    };
 
-                // 15秒后自动停止录音
-                setTimeout(() => {
-                    if (mediaRecorder.state === "recording") {
-                        mediaRecorder.stop();
-                        alert("🎉 15秒声音邮票已成功掉落！");
-                    }
-                }, 15000);
+    function finalizeRec() {
+        isRec = false;
+        recorder.stop();
+        btn.innerText = "📍 DROP A SOUND";
+        btn.classList.remove('recording');
+    }
 
-            } catch (err) {
-                console.error("权限开启失败", err);
-                alert("请在手机设置中允许 Safari/Chrome 使用麦克风和位置。");
+    // 上传声音与心情 Emoji
+    async function processAndUpload() {
+        const mood = prompt("What's your mood right now? (Emoji only)", "✨");
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const fName = `stamp_${Date.now()}.webm`;
+
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const { latitude, longitude } = pos.coords;
+
+            // 1. 上传至 Storage (水桶名为 audio-files)
+            const { data: upData, error: upErr } = await _db.storage.from('audio-files').upload(fName, blob);
+            if(upErr) return alert("Upload failed: " + upErr.message);
+
+            const { data: urlData } = _db.storage.from('audio-files').getPublicUrl(fName);
+
+            // 2. 存入数据库表 (sound_stamps)
+            const { error: dbErr } = await _db.from('sound_stamps').insert([{
+                username: me.name,
+                avatar_type: me.avatar,
+                emoji: mood || '📍',
+                audio_url: urlData.publicUrl,
+                latitude, longitude
+            }]);
+
+            if(!dbErr) {
+                alert("🎉 Your Sound Stamp has dropped!");
+                location.reload(); 
             }
-        }
+        });
+    }
 
-        // 绑定点击事件：替换掉 HTML 里的 onclick，更符合 2026 规范
-        document.getElementById('drop-button').addEventListener('click', startSoundStamp);
-    </script>
+    // 加载地图上的所有声音邮票
+    async function loadAllStamps() {
+        const { data } = await _db.from('sound_stamps').select('*');
+        if(!data) return;
+
+        data.forEach(s => {
+            const el = document.createElement('div');
+            el.className = 'custom-marker';
+            el.innerHTML = `
+                <div class="marker-body">${s.avatar_type==='male'?'👨🏻':'👩🏻'}</div>
+                <div class="marker-name">${s.username}</div>
+                <div class="marker-emoji">${s.emoji}</div>
+            `;
+            
+            // 点击交互：沉浸式听音 + 管理员删除
+            el.onclick = (e) => {
+                e.stopPropagation();
+                const audio = new Audio(s.audio_url);
+                audio.play();
+                
+                // 管理员功能
+                if(ADMINS.includes(me.name)) {
+                    setTimeout(() => {
+                        if(confirm(`Admin [${me.name}]: Delete this stamp from ${s.username}?`)) {
+                            _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
+                        }
+                    }, 500);
+                }
+            };
+
+            new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
+        });
+    }
+</script>
 </body>
 </html>
