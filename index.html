@@ -130,20 +130,27 @@
 
         // 【移动端核心修复】使用 touchend 触发播放
         el.addEventListener('touchend', (e) => {
-            clearTimeout(window.pressTimer); // 手指抬起，取消长按计时
+            clearTimeout(window.pressTimer); 
             
             const pressDuration = Date.now() - startPressTime;
-
-            // 如果按下时间短于 800ms 且不是长按操作，则立即执行同步播放
+        
             if (pressDuration < 800 && !isLongPress) {
-                // 必须在 touchend 的回调函数内同步执行，手机浏览器才允许播放
-                // 如果你使用的是 globalAudio，请确保它在最上方已定义
-                if (typeof globalAudio !== 'undefined') {
-                    globalAudio.src = s.audio_url;
-                    globalAudio.play().catch(err => console.log("Play failed", err));
-                } else {
-                    // 如果你使用的是 v8/v9 的 playSound 函数
-                    playSound(s.audio_url);
+                // --- 核心修复插在这里 ---
+                // 1. 设置音频源
+                player.src = s.audio_url; 
+                // 2. 强制手机浏览器预加载数据
+                player.load(); 
+                // 3. 立即触发播放
+                const playPromise = player.play(); 
+                
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("播放失败:", error);
+                        // 如果还是没声音，尝试静音播放再开启，有时能绕过限制
+                        player.muted = true;
+                        player.play();
+                        player.muted = false;
+                    });
                 }
             }
         });
