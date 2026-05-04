@@ -2,56 +2,51 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Hear Your World - MVP v6</title>
+    <title>Hear Your World - Final Fix</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f4f4f4; overflow: hidden; }
+        body { margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; background: #000; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
         
-        /* 登录卡片样式 */
+        /* 登录层 */
         #auth-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(255,255,255,0.95); z-index: 3000; display: flex; 
-            align-items: center; justify-content: center; backdrop-filter: blur(10px);
+            background: #fff; z-index: 3000; display: flex; 
+            align-items: center; justify-content: center;
         }
-        .auth-card { background: #fff; padding: 40px 30px; border-radius: 40px; text-align: center; width: 80%; max-width: 320px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
-        .avatar-box { display: flex; justify-content: center; gap: 25px; margin: 25px 0; }
-        .av-opt { font-size: 50px; cursor: pointer; opacity: 0.2; transition: 0.3s; filter: grayscale(1); }
-        .av-opt.selected { opacity: 1; transform: scale(1.2); filter: grayscale(0); }
+        .auth-card { text-align: center; width: 80%; max-width: 300px; }
+        .av-opt { font-size: 50px; cursor: pointer; opacity: 0.2; margin: 10px; display: inline-block; transition: 0.3s; }
+        .av-opt.selected { opacity: 1; transform: scale(1.2); }
 
-        /* 底部交互按钮 */
+        /* 交互按钮 */
         .pin-btn { 
             position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: #000; padding: 20px 40px; border-radius: 100px;
-            color: #fff; font-weight: 800; font-size: 15px; z-index: 2000; 
-            min-width: 200px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.3); display: none;
-            border: none; cursor: pointer; letter-spacing: 1px;
+            background: #000; padding: 20px 35px; border-radius: 100px;
+            color: #fff; font-weight: 800; font-size: 14px; z-index: 2000; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: none; display: none;
         }
-        .pin-btn.recording { background: #FF3B30; animation: pulse 1.2s infinite; }
-        @keyframes pulse { 0% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } 100% { transform: translateX(-50%) scale(1); } }
 
-        /* 地图标记样式 */
-        .custom-marker { text-align: center; cursor: pointer; z-index: 10; }
-        .marker-body { width: 52px; height: 52px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); border: 2px solid #fff; }
-        .marker-name { color: #333; font-size: 11px; font-weight: 700; margin-top: 6px; background: rgba(255,255,255,0.9); padding: 3px 10px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .marker-emoji { position: absolute; top: -5px; right: -5px; font-size: 22px; background: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        /* 地图标记 */
+        .custom-marker { text-align: center; cursor: pointer; }
+        .marker-body { width: 50px; height: 50px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid #fff; }
+        .marker-name { color: #333; font-size: 10px; font-weight: 700; margin-top: 5px; background: rgba(255,255,255,0.9); padding: 2px 8px; border-radius: 10px; }
     </style>
 </head>
 <body>
 
 <div id="auth-overlay">
     <div class="auth-card">
-        <h2 style="margin:0; font-weight: 900; letter-spacing: -1px;">HEAR YOUR WORLD</h2>
-        <p style="color:#888; font-size:14px; margin: 10px 0 30px;">Audio Social Antidote</p>
-        <input id="user-name" type="text" placeholder="Your Name" style="width:100%; padding:18px; border-radius:20px; border:2px solid #f0f0f0; font-size:16px; box-sizing:border-box; outline: none; transition: 0.3s;">
+        <h2 style="letter-spacing:-1px;">HEAR YOUR WORLD</h2>
+        <input id="user-name" type="text" placeholder="Your Name" style="width:100%; padding:15px; border-radius:15px; border:1px solid #ddd; margin-bottom:10px; font-size:16px;">
         <div class="avatar-box">
             <span id="av-m" class="av-opt" onclick="setAv('male')">👨🏻‍💻</span>
             <span id="av-f" class="av-opt" onclick="setAv('female')">👩🏻‍🎨</span>
         </div>
-        <button onclick="enterWorld()" style="width:100%; padding:20px; background:#007AFF; color:white; border:none; border-radius:22px; font-weight:800; font-size:16px; cursor:pointer;">ENTER WORLD</button>
+        <button onclick="enterWorld()" style="width:100%; padding:18px; background:#007AFF; color:white; border:none; border-radius:18px; font-weight:bold; font-size:16px;">TAP TO START</button>
+        <p style="font-size:10px; color:#999; margin-top:15px;">*Tapping initializes audio on mobile</p>
     </div>
 </div>
 
@@ -59,140 +54,127 @@
 <button id="drop-button" class="pin-btn">📍 DROP A SOUND</button>
 
 <script>
-    // 数据库配置
     const DB_URL = 'https://cpayvfeaelxsdimbfqkk.supabase.co'; 
     const DB_KEY = 'sb_publishable_ktemn0nndd99JZoeO6tV9g_ShZoBn8S'; 
     const _db = supabase.createClient(DB_URL, DB_KEY);
 
-    // 管理员名单
-    const ADMINS = ['Dayou', 'Rainie'];
     let recorder, chunks = [], isRec = false;
     
-    // 【修复1】全局音频引擎，用于绕过手机浏览器限制
-    let globalAudio = new Audio();
+    // 【核心修复】使用 Web Audio API 上下文，这在手机上比单纯的 <audio> 更稳定
+    let audioCtx;
+    let mainGainNode;
 
     mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
     const map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/mapbox/light-v11', 
         center: [121.47, 31.23],
-        zoom: 13,
-        pitch: 45
+        zoom: 13
     });
 
-    // 【修复2】使用 sessionStorage 确保关闭页面即清除登录，方便换号
     window.onload = () => {
-        const n = sessionStorage.getItem('hyw_name');
-        const a = sessionStorage.getItem('hyw_av');
-        if(n && a) {
-            hideAuth();
+        if(sessionStorage.getItem('hyw_name')) {
+            document.getElementById('auth-overlay').style.display = 'none';
+            document.getElementById('drop-button').style.display = 'block';
             loadStamps();
         }
     };
 
     function setAv(t) {
         sessionStorage.setItem('hyw_av', t);
-        document.getElementById('av-m').className = 'av-opt' + (t==='male'?' selected':'');
-        document.getElementById('av-f').className = 'av-opt' + (t==='female'?' selected':'');
+        document.getElementById('av-m').style.opacity = (t==='male'?'1':'0.2');
+        document.getElementById('av-f').style.opacity = (t==='female'?'1':'0.2');
     }
 
     async function enterWorld() {
         const n = document.getElementById('user-name').value.trim();
         const av = sessionStorage.getItem('hyw_av');
-        if(!n || !av) return alert("Name & Avatar please!");
-        
-        // 【关键修复】在用户点击按钮的一瞬间，通过播放静音音频“激活”浏览器的声音权限
-        globalAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA== ";
-        await globalAudio.play().catch(e => console.log("Audio Prep Done"));
+        if(!n || !av) return alert("Pick a name and avatar!");
 
+        // 【关键】手机端必须在点击事件里初始化 AudioContext
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+        
         sessionStorage.setItem('hyw_name', n);
-        hideAuth();
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('drop-button').style.display = 'block';
         loadStamps();
     }
 
-    function hideAuth() {
-        document.getElementById('auth-overlay').style.display = 'none';
-        document.getElementById('drop-button').style.display = 'block';
+    // 播放音频的函数
+    async function playSound(url) {
+        try {
+            // 如果 Context 被挂起，再次尝试恢复
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioCtx.destination);
+            source.start(0);
+        } catch (e) {
+            console.error("Playback error", e);
+            // 最后的保底：使用传统方法
+            let a = new Audio(url);
+            a.play();
+        }
     }
 
+    // 录音逻辑 (保持不变)
     const btn = document.getElementById('drop-button');
     btn.onclick = async () => {
         if(!isRec) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                recorder = new MediaRecorder(stream);
-                chunks = [];
-                recorder.ondataavailable = e => chunks.push(e.data);
-                recorder.onstop = saveStamp;
-                recorder.start();
-                isRec = true;
-                btn.classList.add('recording');
-                btn.innerText = "⏹ STOP RECORDING";
-            } catch (err) { alert("Enable Microphone Access in Settings"); }
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            recorder = new MediaRecorder(stream);
+            chunks = [];
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = saveStamp;
+            recorder.start();
+            isRec = true;
+            btn.innerText = "⏹ STOP RECORDING";
+            btn.style.background = "red";
         } else {
             isRec = false;
             recorder.stop();
             btn.innerText = "📍 DROP A SOUND";
-            btn.classList.remove('recording');
+            btn.style.background = "#000";
         }
     };
 
     async function saveStamp() {
-        const mood = prompt("What's your mood emoji?", "✨");
+        const mood = prompt("Emoji?", "✨");
         const blob = new Blob(chunks, { type: 'audio/webm' });
         const fName = `audio_${Date.now()}.webm`;
-        const n = sessionStorage.getItem('hyw_name');
-        const a = sessionStorage.getItem('hyw_av');
-
+        
         navigator.geolocation.getCurrentPosition(async (pos) => {
-            const { latitude, longitude } = pos.coords;
-            // 上传音频
-            const { error: uploadError } = await _db.storage.from('audio-files').upload(fName, blob);
-            if (uploadError) return alert("Upload failed: " + uploadError.message);
-
+            await _db.storage.from('audio-files').upload(fName, blob);
             const { data } = _db.storage.from('audio-files').getPublicUrl(fName);
-            
-            // 写入数据库
             await _db.from('sound_stamps').insert([{
-                username: n, avatar_type: a, emoji: mood || '📍',
-                audio_url: data.publicUrl, latitude, longitude
+                username: sessionStorage.getItem('hyw_name'),
+                avatar_type: sessionStorage.getItem('hyw_av'),
+                emoji: mood || '📍',
+                audio_url: data.publicUrl,
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude
             }]);
             location.reload();
-        }, () => alert("GPS needed to pin sound!"));
+        });
     }
 
     async function loadStamps() {
         const { data } = await _db.from('sound_stamps').select('*');
-        const myName = sessionStorage.getItem('hyw_name');
         if(!data) return;
-        
         data.forEach(s => {
             const el = document.createElement('div');
             el.className = 'custom-marker';
             el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨🏻':'👩🏻'}</div>
-                            <div class="marker-emoji">${s.emoji}</div>
-                            <div class="marker-name">${s.username}</div>`;
-            
-            // 【关键修复】点击事件
-            el.addEventListener('click', (e) => {
-                e.stopPropagation();
-                
-                // 更换音源并立即播放
-                globalAudio.src = s.audio_url;
-                globalAudio.play().catch(err => {
-                    console.log("Play failed", err);
-                    alert("Click again to play!");
-                });
-
-                // 管理员特权：长按或连续点击可触发删除
-                if(ADMINS.includes(myName)) {
-                    setTimeout(() => {
-                        if(confirm(`Admin: Delete ${s.username}'s sound?`)) {
-                            _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
-                        }
-                    }, 1000);
-                }
-            });
+                            <div class="marker-name">${s.username} ${s.emoji}</div>`;
+            el.onclick = () => playSound(s.audio_url);
             new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
         });
     }
