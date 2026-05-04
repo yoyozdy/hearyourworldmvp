@@ -1,48 +1,8 @@
-<!DOCTYPE html>    // 【音频管理器】解决移动端播放问题
-    class AudioManager {
-        constructor() {
-            this.player = document.getElementById('global-player');
-            this.isInteracted = false;
-            this.setupGlobalListener();
-        }
-        
-        setupGlobalListener() {
-            const playOnFirstTouch = () => {
-                if (!this.isInteracted) {
-                    this.isInteracted = true;
-                    this.player.volume = 0;
-                    this.player.play().then(() => {
-                        this.player.pause();
-                        this.player.currentTime = 0;
-                        this.player.volume = 1;
-                    }).catch(e => console.log(e));
-                }
-                document.removeEventListener('touchstart', playOnFirstTouch);
-                document.removeEventListener('click', playOnFirstTouch);
-            };
-            document.addEventListener('touchstart', playOnFirstTouch);
-            document.addEventListener('click', playOnFirstTouch);
-        }
-        
-        play(src) {
-            if (!src) return;
-            this.player.pause();
-            this.player.currentTime = 0;
-            this.player.src = src;
-            this.player.load();
-            this.player.play().catch(e => {
-                const audio = new Audio();
-                audio.src = src;
-                audio.play();
-            });
-        }
-    }
-    
-    const audioManager = new AudioManager();
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Hear Your World - Final Mobile Fix</title>
+    <title>Hear Your World - v13 MP3</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
@@ -50,22 +10,11 @@
     <style>
         body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; background: #000; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
-        
-        #auth-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: #fff; z-index: 4000; display: flex; align-items: center; justify-content: center;
-        }
+        #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 4000; display: flex; align-items: center; justify-content: center; }
         .auth-card { text-align: center; width: 85%; max-width: 320px; }
         .av-opt { font-size: 50px; cursor: pointer; opacity: 0.2; margin: 10px; display: inline-block; transition: 0.3s; }
         .av-opt.selected { opacity: 1; transform: scale(1.2); }
-
-        .pin-btn { 
-            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: #000; padding: 20px 35px; border-radius: 100px;
-            color: #fff; font-weight: 800; z-index: 2000; border: none; display: none;
-        }
-
-        /* 标记样式优化，适配 15s sound stamp 概念 */
+        .pin-btn { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #000; padding: 20px 35px; border-radius: 100px; color: #fff; font-weight: 800; z-index: 2000; border: none; display: none; }
         .custom-marker { text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .marker-body { width: 55px; height: 55px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid #fff; }
         .marker-name { color: #fff; font-size: 11px; font-weight: bold; margin-top: 6px; background: rgba(0,0,0,0.7); padding: 3px 10px; border-radius: 20px; }
@@ -89,65 +38,18 @@
 <div id="map"></div>
 <button id="drop-button" class="pin-btn">📍 DROP A SOUND</button>
 
-<audio id="global-player" playsinline preload="auto"></audio>
-
 <script>
-        // 【音频管理器】解决移动端播放问题
-    class AudioManager {
-        constructor() {
-            this.player = document.getElementById('global-player');
-            this.isInteracted = false;
-            this.setupGlobalListener();
-        }
-        
-        setupGlobalListener() {
-            const playOnFirstTouch = () => {
-                if (!this.isInteracted) {
-                    this.isInteracted = true;
-                    this.player.volume = 0;
-                    this.player.play().then(() => {
-                        this.player.pause();
-                        this.player.currentTime = 0;
-                        this.player.volume = 1;
-                    }).catch(e => console.log(e));
-                }
-                document.removeEventListener('touchstart', playOnFirstTouch);
-                document.removeEventListener('click', playOnFirstTouch);
-            };
-            document.addEventListener('touchstart', playOnFirstTouch);
-            document.addEventListener('click', playOnFirstTouch);
-        }
-        
-        play(src) {
-            if (!src) return;
-            this.player.pause();
-            this.player.currentTime = 0;
-            this.player.src = src;
-            this.player.load();
-            this.player.play().catch(e => {
-                const audio = new Audio();
-                audio.src = src;
-                audio.play();
-            });
-        }
-    }
-    
-    const audioManager = new AudioManager();
     const DB_URL = 'https://cpayvfeaelxsdimbfqkk.supabase.co'; 
     const DB_KEY = 'sb_publishable_ktemn0nndd99JZoeO6tV9g_ShZoBn8S'; 
     const _db = supabase.createClient(DB_URL, DB_KEY);
-
     const ADMINS = ['Dayou', 'Rainie'];
-    const player = document.getElementById('global-player');
-    let recorder, chunks = [];
+    
+    let globalPlayer = new Audio();
+    globalPlayer.setAttribute('playsinline', 'true');
+    globalPlayer.setAttribute('webkit-playsinline', 'true');
 
     mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
-    const map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/light-v11', 
-        center: [121.47, 31.23],
-        zoom: 13
-    });
+    const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/light-v11', center: [121.47, 31.23], zoom: 13 });
 
     window.onload = () => {
         if(sessionStorage.getItem('hyw_name')) {
@@ -159,19 +61,17 @@
 
     function setAv(t) {
         sessionStorage.setItem('hyw_av', t);
-        document.getElementById('av-m').classList.toggle('selected', t==='male');
-        document.getElementById('av-f').classList.toggle('selected', t==='female');
         document.getElementById('av-m').style.opacity = (t==='male'?'1':'0.2');
         document.getElementById('av-f').style.opacity = (t==='female'?'1':'0.2');
     }
 
-    function enterWorld() {
+    async function enterWorld() {
         const n = document.getElementById('user-name').value.trim();
         const av = sessionStorage.getItem('hyw_av');
         if(!n || !av) return alert("Pick name & avatar!");
         
-        // 【关键】在手机端这一点击瞬间激活音频播放器
-        player.play().catch(()=>{}); 
+        globalPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==";
+        await globalPlayer.play();
         
         sessionStorage.setItem('hyw_name', n);
         document.getElementById('auth-overlay').style.display = 'none';
@@ -180,89 +80,58 @@
     }
 
     async function loadStamps() {
-    const { data } = await _db.from('sound_stamps').select('*');
-    const myName = sessionStorage.getItem('hyw_name');
-    if(!data) return;
+        const { data } = await _db.from('sound_stamps').select('*');
+        const myName = sessionStorage.getItem('hyw_name');
+        if(!data) return;
 
-    data.forEach(s => {
-        const el = document.createElement('div');
-        el.className = 'custom-marker';
-        el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨🏻‍💻':'👩🏻‍🎨'}</div>
-                        <div class="marker-name">${s.username} ${s.emoji}</div>`;
-        
-        let startPressTime;
-        let isLongPress = false;
-
-        // 【移动端核心修复】使用 touchstart 记录起始时间
-        el.addEventListener('touchstart', (e) => {
-            startPressTime = Date.now();
-            isLongPress = false;
+        data.forEach(s => {
+            const el = document.createElement('div');
+            el.className = 'custom-marker';
+            el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨🏻‍💻':'👩🏻‍🎨'}</div>
+                            <div class="marker-name">${s.username} ${s.emoji}</div>`;
             
-            // 预设长按计时器（管理员删除）
-            window.pressTimer = setTimeout(() => {
-                if (ADMINS.includes(myName)) {
-                    isLongPress = true;
-                    if (confirm(`Admin: Delete ${s.username}'s sound?`)) {
-                        _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
+            let pressTimer;
+            
+            el.addEventListener('touchstart', () => {
+                pressTimer = setTimeout(() => {
+                    if(ADMINS.includes(myName)) {
+                        if(confirm(`Admin: Delete ${s.username}'s sound?`)) {
+                            _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
+                        }
                     }
-                }
-            }, 800); 
-        }, { passive: true });
+                }, 1000);
+            }, { passive: true });
 
-        // 【移动端核心修复】使用 touchend 触发播放
-        el.addEventListener('touchend', (e) => {
-            clearTimeout(window.pressTimer); 
-            
-            const pressDuration = Date.now() - startPressTime;
-        
-            if (pressDuration < 800 && !isLongPress) {
-                // --- 核心修复插在这里 ---
-                // 1. 设置音频源
-                player.src = s.audio_url; 
-                // 2. 强制手机浏览器预加载数据
-                player.load(); 
-                // 3. 立即触发播放
-                const playPromise = player.play(); 
-                
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.log("播放失败:", error);
-                        // 如果还是没声音，尝试静音播放再开启，有时能绕过限制
-                        player.muted = true;
-                        player.play();
-                        player.muted = false;
-                    });
-                }
-            }
+            el.addEventListener('touchend', (e) => {
+                clearTimeout(pressTimer);
+                globalPlayer.src = s.audio_url;
+                globalPlayer.load();
+                globalPlayer.play().catch(err => console.error(err));
+            });
+
+            new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
         });
+    }
 
-        // 兼容电脑端鼠标点击
-        el.onclick = (e) => {
-            if (!('ontouchstart' in window)) {
-                if (typeof globalAudio !== 'undefined') {
-                    globalAudio.src = s.audio_url;
-                    globalAudio.play();
-                } else {
-                    audioManager.play(s.audio_url);
-                }
-            }
-        };
-
-        new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
-    });
-}
-
-    // 录音逻辑
     const btn = document.getElementById('drop-button');
+    let recorder, chunks = [];
     btn.onclick = async () => {
         if(!recorder || recorder.state === "inactive") {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            recorder = new MediaRecorder(stream);
+            
+            // 尝试设置录制格式为 audio/mpeg (mp3)，如果不支持则回退
+            const options = { mimeType: 'audio/mpeg' };
+            try {
+                recorder = new MediaRecorder(stream, options);
+            } catch (e) {
+                recorder = new MediaRecorder(stream);
+            }
+            
             chunks = [];
             recorder.ondataavailable = e => chunks.push(e.data);
             recorder.onstop = saveStamp;
             recorder.start();
-            btn.innerText = "⏹ STOP (RECORDING)";
+            btn.innerText = "⏹ STOP";
             btn.style.background = "red";
         } else {
             recorder.stop();
@@ -273,18 +142,19 @@
 
     async function saveStamp() {
         const mood = prompt("Emoji tag?", "✨");
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const fName = `audio_${Date.now()}.webm`;
+        // 修改 Blob 类型为 audio/mp3
+        const blob = new Blob(chunks, { type: 'audio/mp3' });
+        // 修改保存的文件后缀名为 .mp3
+        const fName = `audio_${Date.now()}.mp3`;
+        
         navigator.geolocation.getCurrentPosition(async (pos) => {
             await _db.storage.from('audio-files').upload(fName, blob);
             const { data } = _db.storage.from('audio-files').getPublicUrl(fName);
             await _db.from('sound_stamps').insert([{
                 username: sessionStorage.getItem('hyw_name'),
                 avatar_type: sessionStorage.getItem('hyw_av'),
-                emoji: mood || '📍',
-                audio_url: data.publicUrl,
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude
+                emoji: mood || '📍', audio_url: data.publicUrl,
+                latitude: pos.coords.latitude, longitude: pos.coords.longitude
             }]);
             location.reload();
         });
