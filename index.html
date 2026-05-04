@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Hear Your World - MVP v3</title>
+    <title>Hear Your World - MVP v4</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
@@ -13,7 +13,8 @@
         
         #auth-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.95); z-index: 3000; display: none; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.95); z-index: 3000; display: flex; /* 默认显示 */
+            align-items: center; justify-content: center;
         }
         .auth-card { background: #fff; padding: 35px 25px; border-radius: 30px; text-align: center; width: 85%; max-width: 320px; }
         .avatar-box { display: flex; justify-content: center; gap: 30px; margin: 25px 0; }
@@ -24,17 +25,12 @@
             position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
             background: #fff; padding: 18px 30px; border-radius: 100px; border: 1px solid #ddd;
             color: #000; font-weight: 800; font-size: 14px; z-index: 2000; 
-            min-width: 220px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            min-width: 220px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.1); display: none;
         }
         .pin-btn.recording { background: #FF3B30; color: #fff; border: none; }
 
         .custom-marker { text-align: center; cursor: pointer; transition: transform 0.1s; z-index: 10; }
-        .custom-marker:active { transform: scale(0.9); }
-        .marker-body { 
-            width: 55px; height: 55px; background: white; border-radius: 50%; 
-            display: flex; align-items: center; justify-content: center; 
-            font-size: 34px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 3px solid #fff;
-        }
+        .marker-body { width: 55px; height: 55px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 3px solid #fff; }
         .marker-name { color: white; font-size: 11px; font-weight: 700; margin-top: 5px; background: rgba(0,0,0,0.6); padding: 3px 10px; border-radius: 20px; display: inline-block; }
         .marker-emoji { position: absolute; top: -5px; right: -5px; font-size: 22px; }
     </style>
@@ -47,18 +43,17 @@
         <p style="color:#999; font-size:14px; margin: 10px 0 25px;">Audio Social Antidote</p>
         <input id="user-name" type="text" placeholder="Your Name" style="width:100%; padding:15px; border-radius:15px; border:2px solid #eee; font-size:16px; box-sizing:border-box; margin-bottom:10px;">
         <div class="avatar-box">
-            <span id="av-m" class="av-opt" onclick="setAv('male')">👨</span>
-            <span id="av-f" class="av-opt" onclick="setAv('female')">👩</span>
+            <span id="av-m" class="av-opt" onclick="setAv('male')">👨🏻‍💻</span>
+            <span id="av-f" class="av-opt" onclick="setAv('female')">👩🏻‍🎨</span>
         </div>
         <button onclick="enterWorld()" style="width:100%; padding:18px; background:#007AFF; color:white; border:none; border-radius:18px; font-weight:700; font-size:16px;">ENTER WORLD</button>
     </div>
 </div>
 
 <div id="map"></div>
-<div id="drop-button" class="pin-btn" style="display:none;">📍 DROP A SOUND</div>
+<div id="drop-button" class="pin-btn">📍 DROP A SOUND</div>
 
 <script>
-    // --- SUPABASE CONFIG ---
     const DB_URL = 'https://cpayvfeaelxsdimbfqkk.supabase.co'; 
     const DB_KEY = 'sb_publishable_ktemn0nndd99JZoeO6tV9g_ShZoBn8S'; 
     const _db = supabase.createClient(DB_URL, DB_KEY);
@@ -66,7 +61,6 @@
     const ADMINS = ['Dayou', 'Rainie', 'admin3', 'admin4', 'admin5'];
     let recorder, chunks = [], isRec = false;
 
-    // --- MAPBOX CONFIG ---
     mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
     const map = new mapboxgl.Map({
         container: 'map',
@@ -75,19 +69,18 @@
         zoom: 13
     });
 
-    // 检查是否已登录
+    // 解决白屏的关键：无论如何先尝试渲染
     window.onload = () => {
         const n = localStorage.getItem('hyw_name');
         const a = localStorage.getItem('hyw_av');
         if(n && a) {
+            document.getElementById('auth-overlay').style.display = 'none';
             document.getElementById('drop-button').style.display = 'block';
             loadStamps();
-        } else {
-            document.getElementById('auth-overlay').style.display = 'flex';
         }
     };
 
-    // 解决手机浏览器音频锁：第一次点击屏幕即解锁
+    // 唤醒音频
     document.addEventListener('touchstart', () => {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         if (audioContext.state === 'suspended') audioContext.resume();
@@ -104,7 +97,9 @@
         const av = localStorage.getItem('hyw_av');
         if(!n || !av) return alert("Name & Avatar please!");
         localStorage.setItem('hyw_name', n);
-        location.reload();
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('drop-button').style.display = 'block';
+        loadStamps();
     }
 
     const btn = document.getElementById('drop-button');
@@ -137,4 +132,45 @@
         const a = localStorage.getItem('hyw_av');
 
         navigator.geolocation.getCurrentPosition(async (pos) => {
-            const { latitude, longitude } =
+            const { latitude, longitude } = pos.coords;
+            await _db.storage.from('audio-files').upload(fName, blob);
+            const { data } = _db.storage.from('audio-files').getPublicUrl(fName);
+            await _db.from('sound_stamps').insert([{
+                username: n, avatar_type: a, emoji: mood || '📍',
+                audio_url: data.publicUrl, latitude, longitude
+            }]);
+            location.reload();
+        });
+    }
+
+    async function loadStamps() {
+        const { data } = await _db.from('sound_stamps').select('*');
+        const myName = localStorage.getItem('hyw_name');
+        if(!data) return;
+        
+        data.forEach(s => {
+            const el = document.createElement('div');
+            el.className = 'custom-marker';
+            el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨🏻':'👩🏻'}</div>
+                            <div class="marker-name">${s.username}</div>
+                            <div class="marker-emoji">${s.emoji}</div>`;
+            
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const audio = new Audio(s.audio_url);
+                audio.play().catch(err => alert("Click again to play"));
+
+                if(ADMINS.includes(myName)) {
+                    setTimeout(() => {
+                        if(confirm(`Admin: Delete stamp?`)) {
+                            _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
+                        }
+                    }, 500);
+                }
+            });
+            new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
+        });
+    }
+</script>
+</body>
+</html>
