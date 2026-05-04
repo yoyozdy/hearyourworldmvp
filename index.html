@@ -53,35 +53,72 @@
 </head>
 <body>
     <div id="map"></div>
-    <div class="pin-btn" onclick="getLocation()">📍Drop a Sound</div>
+    <!-- 这里的 id="drop-button" 是关键，脚本靠它来控制录音 -->
+    <div id="drop-button" class="pin-btn">📍Drop a Sound</div>
 
     <script>
-        // 【关键】在这里填入你刚刚申请到的 Token
+        // 1. 初始化地图
         mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9vZnJvcmgxaDg0MndvZzRuOG0zYnRhIn0.cjcEvC5FbhpFRQ8jAJi-fA';
-
-        // 初始化地图
         const map = new mapboxgl.Map({
-            container: 'map', // 地图容器 ID
-            style: 'mapbox://styles/mapbox/streets-v12', // 街道风格，你也可以换成 'mapbox://styles/mapbox/dark-v11'
-            center: [121.47, 31.23], // 初始坐标 (上海)
-            zoom: 12 // 初始缩放级别
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [121.47, 31.23],
+            zoom: 12
         });
 
-        // 手机定位功能
-        function getLocation() {
-            if (navigator.geolocation) {
+        // 2. 核心：集成录音与定位的一键触发功能
+        async function startSoundStamp() {
+            const btn = document.getElementById('drop-button');
+            
+            try {
+                // 请求麦克风权限（手机端必须在 HTTPS 下触发）
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start();
+
+                // 同时获取定位并打点
                 navigator.geolocation.getCurrentPosition((position) => {
                     const { longitude, latitude } = position.coords;
-                    // 把地图中心对准你
                     map.flyTo({ center: [longitude, latitude], zoom: 15 });
-                    // 在你所在的地方放一个蓝色标记
+                    // 在地图上放置一个标记
                     new mapboxgl.Marker().setLngLat([longitude, latitude]).addTo(map);
-                    alert("定位成功！准备开始录音了吗？");
+                }, (err) => {
+                    console.error("定位失败", err);
+                    alert("请开启手机 GPS 定位权限");
                 });
-            } else {
-                alert("你的浏览器不支持定位。");
+
+                // 3. UI 倒计时反馈（15秒声音邮票）
+                let timeLeft = 15;
+                btn.innerText = `Recording... ${timeLeft}s 📍`;
+                btn.style.background = "rgba(255, 100, 100, 0.5)"; // 录音时呈现淡红色提醒
+
+                const timer = setInterval(() => {
+                    timeLeft--;
+                    if (timeLeft > 0) {
+                        btn.innerText = `Recording... ${timeLeft}s 📍`;
+                    } else {
+                        clearInterval(timer);
+                        btn.innerText = "Sound Dropped! 📍";
+                        btn.style.background = "rgba(255, 255, 255, 0.3)";
+                    }
+                }, 1000);
+
+                // 15秒后自动停止录音
+                setTimeout(() => {
+                    if (mediaRecorder.state === "recording") {
+                        mediaRecorder.stop();
+                        alert("🎉 15秒声音邮票已成功掉落！");
+                    }
+                }, 15000);
+
+            } catch (err) {
+                console.error("权限开启失败", err);
+                alert("请在手机设置中允许 Safari/Chrome 使用麦克风和位置。");
             }
         }
+
+        // 绑定点击事件：替换掉 HTML 里的 onclick，更符合 2026 规范
+        document.getElementById('drop-button').addEventListener('click', startSoundStamp);
     </script>
 </body>
 </html>
