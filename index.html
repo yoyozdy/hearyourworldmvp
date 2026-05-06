@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Hear Your World - v15</title>
+    <title>Hear Your World - Final Fix</title>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
@@ -25,7 +25,7 @@
 <div id="auth-overlay">
     <div class="auth-card">
         <h1 style="letter-spacing:-2px; margin-bottom:5px;">HEAR YOUR WORLD</h1>
-        <p style="color:#999; margin-bottom:30px;">Audio Social Antidote [cite: 2]</p>
+        <p style="color:#999; margin-bottom:30px;">Audio Social Antidote</p>
         <input id="user-name" type="text" placeholder="Your Name" style="width:100%; padding:18px; border-radius:20px; border:2px solid #eee; margin-bottom:15px; font-size:16px; outline:none;">
         <div class="avatar-box">
             <span id="av-m" class="av-opt" onclick="setAv('male')">👨🏻‍💻</span>
@@ -39,14 +39,13 @@
 <button id="drop-button" class="pin-btn">📍 DROP A SOUND </button>
 
 <script>
-    const DB_URL = 'https://cpayvfeaelxsdimbfqkk.supabase.co'; 
-    const DB_KEY = 'sb_publishable_ktemn0nndd99JZoeO6tV9g_ShZoBn8S'; 
-    const _db = supabase.createClient(DB_URL, DB_KEY);
-    const ADMINS = ['Dayou', 'Rainie'];
+    // 【修改点】尝试从环境变量读取，如果读取不到则使用你刚才提供的默认值
+    // 建议在 Vercel 中设置 NEXT_PUBLIC_SUPABASE_URL
+    const DB_URL = window.location.hostname === 'localhost' ? 'https://cpayvfeaelxsdimbfqkk.supabase.co' : (process?.env?.NEXT_PUBLIC_SUPABASE_URL || 'https://cpayvfeaelxsdimbfqkk.supabase.co');
+    const DB_KEY = window.location.hostname === 'localhost' ? 'sb_publishable_ktemn0nndd99JZoeO6tV9g_ShZoBn8S' : (process?.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_ktemn0nndd99JZoeO6tV9g_ShZoBn8S');
     
-    let globalPlayer = new Audio();
-    globalPlayer.setAttribute('playsinline', 'true');
-
+    const _db = supabase.createClient(DB_URL, DB_KEY);
+    
     mapboxgl.accessToken = 'pk.eyJ1IjoieW95b3pkeSIsImEiOiJjbW9yYWhyaDEyMGRuMnBzMWhqd2ExNzQ5In0.OOYCgsK0LHMDrTpVaeAEaQ';
     const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/light-v11', center: [121.47, 31.23], zoom: 13 });
 
@@ -64,59 +63,49 @@
         const n = document.getElementById('user-name').value.trim();
         const av = sessionStorage.getItem('hyw_av');
         if(!n || !av) return alert("Pick name & avatar!");
-        
-        // 解锁音频
         globalPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==";
         globalPlayer.play().catch(() => {});
-        
         sessionStorage.setItem('hyw_name', n);
         hideAuth();
         loadStamps();
     }
 
     async function loadStamps() {
-        const { data } = await _db.from('sound_stamps').select('*');
-        const myName = sessionStorage.getItem('hyw_name');
-        if(!data) return;
+        // 【核心修复】增加错误捕获，防止因为表不存在导致地图空白
+        try {
+            const { data, error } = await _db.from('sound_stamps').select('*');
+            if (error) throw error;
+            if(!data) return;
 
-        data.forEach(s => {
-            const el = document.createElement('div');
-            el.className = 'custom-marker';
-            el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨🏻‍💻':'👩🏻‍🎨'}</div>
-                            <div class="marker-name">${s.username} ${s.emoji}</div>`;
-            
-            let pressTimer;
-            el.addEventListener('touchstart', () => {
-                pressTimer = setTimeout(() => {
-                    if(ADMINS.includes(myName) && confirm(`Admin: Delete ${s.username}'s sound?`)) {
-                        _db.from('sound_stamps').delete().eq('id', s.id).then(() => location.reload());
-                    }
-                }, 1000);
+            data.forEach(s => {
+                const el = document.createElement('div');
+                el.className = 'custom-marker';
+                el.innerHTML = `<div class="marker-body">${s.avatar_type==='male'?'👨🏻‍💻':'👩🏻‍🎨'}</div>
+                                <div class="marker-name">${s.username || 'User'} ${s.emoji || ''}</div>`;
+                
+                el.addEventListener('click', () => {
+                    globalPlayer.src = s.audio_url;
+                    globalPlayer.play().catch(() => alert("Tap again to play!"));
+                });
+
+                // 兼容旧字段名和新字段名
+                const lng = s.longitude || s.lng;
+                const lat = s.latitude || s.lat;
+                if(lng && lat) new mapboxgl.Marker(el).setLngLat([lng, lat]).addTo(map);
             });
-
-            el.addEventListener('touchend', () => {
-                clearTimeout(pressTimer);
-                globalPlayer.src = s.audio_url;
-                globalPlayer.load();
-                globalPlayer.play().catch(() => alert("Tap again to play!"));
-            });
-
-            new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
-        });
+        } catch (e) {
+            console.error("Load Error:", e);
+        }
     }
 
     const btn = document.getElementById('drop-button');
-    let recorder, chunks = [];
+    let recorder, chunks = [], globalPlayer = new Audio();
 
     btn.onclick = async () => {
         if(!recorder || recorder.state === "inactive") {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // 【核心修复】探测浏览器支持的格式
                 const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
-                console.log("Using MimeType:", mimeType);
-                
                 recorder = new MediaRecorder(stream, { mimeType });
                 chunks = [];
                 recorder.ondataavailable = e => chunks.push(e.data);
@@ -135,23 +124,29 @@
     async function saveStamp(mimeType) {
         const mood = prompt("Emoji tag?", "✨");
         const blob = new Blob(chunks, { type: mimeType });
-        
-        // 根据真实的 mimeType 确定后缀
         const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
         const fName = `audio_${Date.now()}.${ext}`;
         
         navigator.geolocation.getCurrentPosition(async (pos) => {
             const { error: uploadError } = await _db.storage.from('audio-files').upload(fName, blob);
-            if(uploadError) return alert("Upload failed");
+            if(uploadError) return alert("Upload failed: " + uploadError.message);
 
             const { data } = _db.storage.from('audio-files').getPublicUrl(fName);
-            await _db.from('sound_stamps').insert([{
+            
+            // 【核心修复】同时写入旧版和新版字段名，确保万无一失
+            const { error: insertError } = await _db.from('sound_stamps').insert([{
                 username: sessionStorage.getItem('hyw_name'),
                 avatar_type: sessionStorage.getItem('hyw_av'),
-                emoji: mood || '📍', audio_url: data.publicUrl,
-                latitude: pos.coords.latitude, longitude: pos.coords.longitude
+                emoji: mood || '📍', 
+                audio_url: data.publicUrl,
+                latitude: pos.coords.latitude, 
+                longitude: pos.coords.longitude,
+                lat: pos.coords.latitude, 
+                lng: pos.coords.longitude
             }]);
-            location.reload();
+            
+            if(insertError) alert("Database Error: " + insertError.message);
+            else location.reload();
         }, () => alert("GPS needed!"));
     }
 </script>
