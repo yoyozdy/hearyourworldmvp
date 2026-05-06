@@ -131,9 +131,14 @@ async function saveStamp(mimeType) {
         
         navigator.geolocation.getCurrentPosition(async (pos) => {
             // 【核心修正 2】上传时不要加任何路径，直接传文件名
+// 【最终修正版：添加了配置参数以确保路径强制解析】
             const { data: uploadData, error: uploadError } = await _db.storage
                 .from('audio-files')
-                .upload(fName, blob);
+                .upload(`${fName}`, blob, {
+                    cacheControl: '3600',
+                    upsert: false,
+                    contentType: mimeType // 显式告诉服务器文件类型
+                });
 
             if(uploadError) {
                 // 如果报错，弹窗显示最真实的原因，方便我们一锤定音
