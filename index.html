@@ -41,7 +41,7 @@
 <script>
     // 【修改点】尝试从环境变量读取，如果读取不到则使用你刚才提供的默认值
     // 建议在 Vercel 中设置 NEXT_PUBLIC_SUPABASE_URL
-    const DB_URL = 'https://lwfeksuhtobahphbedwh.supabase.co/rest/v1/'; 
+    const DB_URL = 'https://lwfeksuhtobahphbedwh.supabase.co'; 
     const DB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3ZmVrc3VodG9iYWhwaGJlZHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwNTc4MjAsImV4cCI6MjA5MzYzMzgyMH0.iqheC06C1l0Iih50sItqF35I4XmhAfLVK1Z9qphDixY'; 
     
     const _db = supabase.createClient(DB_URL, DB_KEY);
