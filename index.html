@@ -1,4 +1,43 @@
-<!DOCTYPE html>
+async function saveStamp(mimeType) {
+        const mood = prompt("Emoji tag?", "✨");
+        const blob = new Blob(chunks, { type: mimeType });
+        const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+        
+        // 【修正点】确保文件名是一个干净的字符串
+        const fName = `rec_${Date.now()}.${ext}`;
+        
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            console.log("Attempting upload to bucket 'audio-files' with filename:", fName);
+            
+            // 【核心修复】确保路径只是文件名，没有任何多余的斜杠或前缀
+            const { data: uploadData, error: uploadError } = await _db.storage
+                .from('audio-files')
+                .upload(fName, blob, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if(uploadError) {
+                console.error("Full Upload Error:", uploadError);
+                return alert("Upload failed: " + uploadError.message);
+            }
+
+            const { data } = _db.storage.from('audio-files').getPublicUrl(fName);
+            
+            // 写入数据库
+            const { error: insertError } = await _db.from('sound_stamps').insert([{
+                username: sessionStorage.getItem('hyw_name'),
+                avatar_type: sessionStorage.getItem('hyw_av'),
+                emoji: mood || '📍', 
+                audio_url: data.publicUrl,
+                latitude: pos.coords.latitude, 
+                longitude: pos.coords.longitude
+            }]);
+            
+            if(insertError) alert("Database Error: " + insertError.message);
+            else location.reload();
+        }, () => alert("GPS needed!"));
+    }<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -121,28 +160,40 @@
         }
     };
 
-    async function saveStamp(mimeType) {
+async function saveStamp(mimeType) {
         const mood = prompt("Emoji tag?", "✨");
         const blob = new Blob(chunks, { type: mimeType });
         const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
-        const fName = `audio_${Date.now()}.${ext}`;
+        
+        // 【修正点】确保文件名是一个干净的字符串
+        const fName = `rec_${Date.now()}.${ext}`;
         
         navigator.geolocation.getCurrentPosition(async (pos) => {
-            const { error: uploadError } = await _db.storage.from('audio-files').upload(fName, blob);
-            if(uploadError) return alert("Upload failed: " + uploadError.message);
+            console.log("Attempting upload to bucket 'audio-files' with filename:", fName);
+            
+            // 【核心修复】确保路径只是文件名，没有任何多余的斜杠或前缀
+            const { data: uploadData, error: uploadError } = await _db.storage
+                .from('audio-files')
+                .upload(fName, blob, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if(uploadError) {
+                console.error("Full Upload Error:", uploadError);
+                return alert("Upload failed: " + uploadError.message);
+            }
 
             const { data } = _db.storage.from('audio-files').getPublicUrl(fName);
             
-            // 【核心修复】同时写入旧版和新版字段名，确保万无一失
+            // 写入数据库
             const { error: insertError } = await _db.from('sound_stamps').insert([{
                 username: sessionStorage.getItem('hyw_name'),
                 avatar_type: sessionStorage.getItem('hyw_av'),
                 emoji: mood || '📍', 
                 audio_url: data.publicUrl,
                 latitude: pos.coords.latitude, 
-                longitude: pos.coords.longitude,
-                lat: pos.coords.latitude, 
-                lng: pos.coords.longitude
+                longitude: pos.coords.longitude
             }]);
             
             if(insertError) alert("Database Error: " + insertError.message);
